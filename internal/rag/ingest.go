@@ -16,22 +16,22 @@ type Ingestor struct {
 	VectorClient *vector.Client
 	Embedder     *EmbeddingClient
 	Collection   string
+	EmbeddingDim int
 }
 
-func NewIngestor(vc *vector.Client, ec *EmbeddingClient, collection string) *Ingestor {
+func NewIngestor(vc *vector.Client, ec *EmbeddingClient, collection string, dim int) *Ingestor {
 	return &Ingestor{
 		VectorClient: vc,
 		Embedder:     ec,
 		Collection:   collection,
+		EmbeddingDim: dim,
 	}
 }
 
 // IngestPDFs iterates over a directory and ingests all PDF files
 func (i *Ingestor) IngestPDFs(ctx context.Context, dir string) error {
 	// Ensure collection exists
-	// Assuming vector size 768 for all-MiniLM-L6-v2 or similar from Ollama
-	// Adjust size based on the model. deepseek or others might be different.
-	if err := i.VectorClient.CreateCollection(ctx, i.Collection, 768); err != nil {
+	if err := i.VectorClient.CreateCollection(ctx, i.Collection, uint64(i.EmbeddingDim)); err != nil {
 		return err
 	}
 

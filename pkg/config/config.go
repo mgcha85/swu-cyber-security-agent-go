@@ -7,8 +7,15 @@ import (
 )
 
 type Config struct {
+	System     SystemConfig     `yaml:"system"`
 	Agents     []AgentConfig    `yaml:"agents"`
 	SuperAgent SuperAgentConfig `yaml:"super_agent"`
+}
+
+type SystemConfig struct {
+	EmbeddingModel string `yaml:"embedding_model"`
+	EmbeddingDim   int    `yaml:"embedding_dim"` // e.g., 384, 768, 1024
+	VisionModel    string `yaml:"vision_model"`
 }
 
 type AgentConfig struct {
@@ -36,6 +43,16 @@ func LoadConfig(path string) (*Config, error) {
 	decoder := yaml.NewDecoder(f)
 	if err := decoder.Decode(&cfg); err != nil {
 		return nil, err
+	}
+	// Set defaults if missing
+	if cfg.System.EmbeddingModel == "" {
+		cfg.System.EmbeddingModel = "all-minilm"
+	}
+	if cfg.System.EmbeddingDim == 0 {
+		cfg.System.EmbeddingDim = 384
+	}
+	if cfg.System.VisionModel == "" {
+		cfg.System.VisionModel = "llava" // Fallback
 	}
 	return &cfg, nil
 }

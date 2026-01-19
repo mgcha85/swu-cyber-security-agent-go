@@ -1,71 +1,84 @@
-# API 레퍼런스
+# Cyber Security Agent API
 
-사이버 보안 에이전트 시스템은 서버 모드(`--server`)로 실행될 때 RESTful API를 제공합니다.
+The agent exposes a REST API via HTTP (default port: 8080).
 
-## 기본 URL (Base URL)
+## Base URL
 `http://localhost:8080`
 
-## 엔드포인트
+## Endpoints
 
-### 1. 에이전트와 대화 (Chat with Agent)
-리서치 에이전트에게 질의를 보냅니다.
+### 1. Super Agent Orchestration (Main)
+Synthesizes reports from all Research Agents and optionally analyzes a GNN Figure using VLM.
 
--   **URL**: `/api/chat`
+-   **URL**: `/api/super/chat`
 -   **Method**: `POST`
--   **Content-Type**: `application/json`
+-   **Body**:
+    ```json
+    {
+      "query": "Analyze the threat trends for the energy sector.",
+      "image": "<base64_string_optional>"
+    }
+    ```
+-   **Response**:
+    ```json
+    {
+      "final_report": "Comprehensive synthesized report...",
+      "agent_reports": {
+        "attacker_feasibility": "...",
+        "sector_geo_context": "..."
+      },
+      "vlm_analysis": "Analysis of the provided figure..."
+    }
+    ```
 
-#### 요청 본문 (Request Body)
-```json
-{
-  "query": "질문 내용"
-}
-```
+### 2. Specific Research Agent Chat
+Interact with a single specialized agent.
 
-#### 응답 (Response)
-```json
-{
-  "response": "지식 베이스를 기반으로 한 에이전트의 답변..."
-}
-```
+-   **URL**: `/api/agent/{agent_id}/chat`
+-   **Method**: `POST`
+-   **Body**:
+    ```json
+    {
+      "query": "What are the latest CVEs?"
+    }
+    ```
+-   **Response**:
+    ```json
+    {
+      "agent": "Attacker Feasibility",
+      "response": "Based on Mandiant M-Trends..."
+    }
+    ```
+-   **Agent IDs**: `attacker_feasibility`, `defensive_readiness`, `exploit_kinetics`, `sector_geo_context`, `risk_cost_impact`.
 
-#### 예시 (curl)
-```bash
-curl -X POST http://localhost:8080/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "CVE-2025-9999 취약점을 이용한 공격의 기술적 실현 가능성을 분석해줘"
-  }'
-```
+### 3. VLM Analysis (Vision Only)
+Directly use the VLM to analyze an image.
 
----
+-   **URL**: `/api/vlm/analyze`
+-   **Method**: `POST`
+-   **Body**:
+    ```json
+    {
+      "image": "<base64_string>",
+      "prompt": "Describe this network topology."
+    }
+    ```
+-   **Response**:
+    ```json
+    {
+      "response": "This image shows a star topology..."
+    }
+    ```
 
-### 2. 문서 수집 (Ingest Documents)
-지정된 로컬 디렉토리의 모든 PDF 파일을 벡터 데이터베이스(Vector DB)로 수집(Ingest)합니다.
+### 4. Ingest Documents
+Ingest PDFs from a directory into a specific collection (Knowledge Base).
 
 -   **URL**: `/api/ingest`
 -   **Method**: `POST`
--   **Content-Type**: `application/json`
-
-#### 요청 본문 (Request Body)
-```json
-{
-  "dir": "/absolute/path/to/docs"
-}
-```
-
-#### 응답 (Response)
-```json
-{
-  "status": "success",
-  "message": "Ingestion complete"
-}
-```
-
-#### 예시 (curl)
-```bash
-curl -X POST http://localhost:8080/api/ingest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "dir": "/home/user/docs/cve_reports"
-  }'
-```
+-   **Body**:
+    ```json
+    {
+      "dir": "/app/doc/My_KB_Folder",
+      "collection_name": "My_KB_Name"
+    }
+    ```

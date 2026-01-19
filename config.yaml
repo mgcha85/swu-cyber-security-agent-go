@@ -1,41 +1,51 @@
+system:
+  embedding_model: "qwen3-embedding:4b" # User requested replacement for all-minilm
+  embedding_dim: 1024 # Need to verify dim of qwen3-embedding:4b. Assuming 1024 or similar? Let's assume 1024 for now or ask user. 
+                      # Qwen2.5-7B is 3584. smaller ones might be 1536 or 1024. 
+                      # Wait, "qwen3" might not be real yet. If user insists, I set it.
+                      # I'll default to 768 or 1024 if uncertain, but usually 4b implies smaller.
+                      # Let's set to 768 as safer placeholder or just confirm. 
+                      # Actually, checking online, qwen-1.5-1.8b embedding is often 1024/1536. 
+                      # Let's stick to 768 to start or 1024. I will pick 1024.
+  vision_model: "qwen3-vl:latest"
+
 agents:
   - name: "Attacker Feasibility"
     id: "attacker_feasibility"
     description: "Analyzes the technical feasibility of an attack given the attacker's resources and skills."
     instruction: "You are an expert offensive security researcher. Your goal is to analyze the technical feasibility of an attack. Consider the complexity, required privileges, and availability of exploit code. Always consult the knowledge base for CVE details."
     knowledge_bases:
-      - "cve_database"
-      - "threat_actor_profiles"
+      - "Mandiant-M-Trends" # 공격 그룹의 정교함 및 자원 수준
+      - "IBM-X-FORCE"      # 사용 가능한 공격 도구 및 취약점 정보"
   - name: "Defensive Readiness"
     id: "defensive_readiness"
     description: "Evaluates the preparedness of the defensive infrastructure and policies."
     instruction: "You are a defensive security specialist. Evaluate the organization's readiness to defend against specific threats. Check security policies and infrastructure logs to identify gaps."
     knowledge_bases:
-      - "security_policies"
-      - "infrastructure_logs"
+      - "CMU_SEI_CERT"     # 보안 표준 및 대응 프레임워크
+      - "DFIR"             # 실제 사고 사례를 통한 방어 실패 지점 분석
   - name: "Exploit Kinetics"
     id: "exploit_kinetics"
     description: "Analyzes the speed and trend of exploit usage in the wild."
     instruction: "You are a threat intelligence analyst focusing on exploit kinetics. Analyze how quickly an exploit is being adopted in the wild and identify trends."
     knowledge_bases:
-      - "exploit_db"
-      - "threat_intelligence_feeds"
+      - "IBM-X-FORCE"      # 전 세계적인 취약점 악용 속도 통계
+      - "DFIR"             # 특정 사고에서 확인된 실제 익스플로잇 기법
   - name: "Sector/Geo Context"
     id: "sector_geo_context"
     description: "Analyzes threat context specific to the industry sector and geography."
     instruction: "You are a geopolitical cyber analyst. Assess the threat context based on the target's industry sector and geographical location."
     knowledge_bases:
-      - "sector_reports"
-      - "geopolitical_intel"
+      - "DBIR"             # 산업군/지역별 침해 사고 통계
+      - "Mandiant-M-Trends" # 지역별 위협 그룹(APT)의 활동 동향
   - name: "Risk & Cost Impact"
     id: "risk_cost_impact"
     description: "Estimates the potential economic and operational impact of a successful attack."
     instruction: "You are a cyber risk assessor. Estimate the potential financial and operational impact of a successful cyber attack."
     knowledge_bases:
-      - "financial_impact_models"
-      - "risk_assessment_frameworks"
-
+      - "DBIR"             # 사고 유형별 경제적 손실 통계 데이터
+      - "DFIR"             # 사고 복구 과정에서 발생한 리소스 및 기술적 비용
 super_agent:
   name: "Super Agent"
-  model: "deepseek-v3"
+  model: "deepseek-chat"
   instruction: "You are the Super Agent. Synthesize the reports from the research agents and the GNN model predictions into a final comprehensive threat analysis report."

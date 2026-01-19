@@ -1,0 +1,6 @@
+doc/
+qdrant_data/
+
+*.pdf
+.env
+config.yaml

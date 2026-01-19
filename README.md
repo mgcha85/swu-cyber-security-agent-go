@@ -15,8 +15,10 @@
 | :--- | :--- | :--- |
 | **언어** | Go (Golang) 1.24+ | 메인 애플리케이션 로직 |
 | **프레임워크** | Google ADK | 에이전트 오케스트레이션 |
-| **벡터 DB** | Qdrant | PDF 임베딩 저장소 |
-| **LLM/Embed** | Ollama, DeepSeek | 로컬 LLM 및 임베딩 추론 |
+| **LLM Model** | DeepSeek-V3 (OpenAI Compatible) | 로컬 LLM 추론 |
+| **Embedding Model** | Qwen3-Embedding:4b (Configurable) | 임베딩 추론 |
+| **Vision Model (VLM)** | Qwen3-VL:Latest | 이미지/멀티모달 분석 |
+| **Vector Database** | Qdrant | PDF 임베딩 저장소 |
 | **인프라** | Podman Compose | 컨테이너 관리 |
 
 ## 소스 트리 구조
