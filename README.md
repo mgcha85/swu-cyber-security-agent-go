@@ -4,9 +4,12 @@
 
 ## 시스템 개요
 
+## 시스템 개요
+
 이 시스템은 다음과 같이 구성됩니다:
--   **5개의 리서치 에이전트**: 각 에이전트는 특정 페르소나(예: 공격 실행 가능성, 위험 영향 등)와 전용 지식 베이스(Knowledge Base)를 가집니다.
--   **슈퍼 에이전트**: 모든 리서치 에이전트의 조사 결과를 종합하고 GNN 모델의 예측 결과와 비교 분석합니다.
+-   **5개의 리서치 에이전트**: 각 에이전트는 특정 페르소나(예: 공격 실행 가능성, 위험 영향 등)와 전용 지식 베이스(Knowledge Base)를 가집니다. **Google Search Tool**을 통해 실시간 웹 검색을 수행하여 최신 위협 정보를 보완합니다.
+-   **슈퍼 에이전트**: 모든 리서치 에이전트의 조사 결과와 **VLM(Vision Language Model)**이 분석한 GNN 트렌드 그래프를 종합하여 최종 보고서를 작성합니다.
+-   **GNN 파이프라인**: 과거 데이터를 기반으로 위협 트렌드를 예측하고 CSV/Image 형태로 에이전트에게 제공합니다.
 -   **RAG 엔진**: **Qdrant** (Vector DB) 및 **Ollama** (임베딩)를 기반으로 동작합니다.
 
 ## 기술 스택
@@ -17,7 +20,8 @@
 | **프레임워크** | Google ADK | 에이전트 오케스트레이션 |
 | **LLM Model** | DeepSeek-V3 (OpenAI Compatible) | 로컬 LLM 추론 |
 | **Embedding Model** | Qwen3-Embedding:4b (Configurable) | 임베딩 추론 |
-| **Vision Model (VLM)** | Qwen3-VL:Latest | 이미지/멀티모달 분석 |
+| **Vision Model (VLM)** | Qwen3-VL:Latest | GNN 그래프 이미지 분석 |
+| **Search Tool** | Google Custom Search API | 에이전트 실시간 웹 검색 |
 | **Vector Database** | Qdrant | PDF 임베딩 저장소 |
 | **인프라** | Podman Compose | 컨테이너 관리 |
 
@@ -31,9 +35,11 @@ swu-cyber-security-agent-go/
 │   ├── agent/           # 리서치 에이전트 & 슈퍼 에이전트 로직 (ADK)
 │   ├── rag/             # RAG 로직 (데이터 수집, 임베딩, 검색)
 │   ├── vector/          # Qdrant 클라이언트 래퍼
-│   └── model/           # LLM 모델 어댑터 (Mock 포함)
+│   ├── model/           # LLM 모델 어댑터 (Mock 포함)
+│   └── tool/            # Google Search 등 도구 구현체
 ├── config.yaml          # 에이전트 및 KB 설정
 ├── docker-compose.yml   # 인프라 정의 (Qdrant)
+├── batch_generate_reports.sh # 배치 리포트 생성 스크립트
 ├── README.md            # 이 파일
 ├── API.md               # API 명세서
 └── SETUP.md             # IDE 설정 가이드
@@ -44,6 +50,16 @@ swu-cyber-security-agent-go/
 ### 필수 요구사항
 -   Go 1.24 이상
 -   Podman (docker-compose shim 포함)
+
+### 환경 변수 설정 (Configuration)
+시스템 실행 전 `.env` 파일을 생성하거나 환경 변수를 설정해야 합니다.
+
+```bash
+# .env file
+OPENAI_API_KEY=your_openai_key_if_using_openai
+GOOGLE_API_KEY=your_google_custom_search_api_key
+GOOGLE_CX=your_google_custom_search_engine_id
+```
 
 ### 설치 방법
 1.  **인프라 실행**
@@ -76,6 +92,17 @@ API 엔드포인트를 노출하기 위해 HTTP 서버를 시작합니다:
 ./agent-server --server
 ```
 *서버는 8080 포트에서 수신 대기합니다.*
+
+### 배치 리포트 생성 (Batch Report Generation)
+GNN 결과(`gnn_results/*.png`)를 기반으로 자동으로 리포트를 생성하고 번역합니다.
+
+```bash
+# 실행 전 jq 설치 필요 (sudo apt install jq)
+chmod +x batch_generate_reports.sh
+./batch_generate_reports.sh
+```
+*생성된 리포트는 `reports/` 폴더에 저장됩니다 (영문 `.md` 및 국문 `_ko.md`).*
+
 ## 6. 관측 및 문서화 (Observability & Docs)
 
 ### Swagger UI (API 문서)
@@ -89,6 +116,7 @@ LLM 응답 속도 등의 성능 데이터를 조회할 수 있습니다.
 
 ## 7. 문의
 문제 발생 시 Issue를 등록해주세요.
+
 ### 컨테이너 환경에서 실행 (Container)
 
 호스트에 설치된 Ollama와 PDF 문서가 있는 `./doc` 폴더를 연동하여 컨테이너로 실행할 수 있습니다.
@@ -96,6 +124,7 @@ LLM 응답 속도 등의 성능 데이터를 조회할 수 있습니다.
 1.  **준비 사항**:
     -   프로젝트 루트에 `doc` 폴더 생성 및 PDF 파일 위치.
     -   호스트에서 `ollama serve`가 실행 중인지 확인 (기본 포트 11434).
+    -   `.env` 파일에 Google API 키 설정.
 
 2.  **실행**:
     ```bash
