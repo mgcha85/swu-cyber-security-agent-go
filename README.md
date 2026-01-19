@@ -75,4 +75,25 @@ API 엔드포인트를 노출하기 위해 HTTP 서버를 시작합니다:
 ```
 *서버는 8080 포트에서 수신 대기합니다.*
 
-상세 API 사용법은 [API.md](API.md)를 참조하세요.
+### 컨테이너 환경에서 실행 (Container)
+
+호스트에 설치된 Ollama와 PDF 문서가 있는 `./doc` 폴더를 연동하여 컨테이너로 실행할 수 있습니다.
+
+1.  **준비 사항**:
+    -   프로젝트 루트에 `doc` 폴더 생성 및 PDF 파일 위치.
+    -   호스트에서 `ollama serve`가 실행 중인지 확인 (기본 포트 11434).
+
+2.  **실행**:
+    ```bash
+    podman-compose up -d --build
+    ```
+    *`agent` 서비스가 빌드되고 시작되며, 호스트의 `./doc` 폴더가 컨테이너의 `/app/doc`으로 마운트됩니다.*
+
+3.  **수집 및 사용**:
+    -   API를 통해 수집 명령을 내릴 때, 컨테이너 내부 경로인 `/app/doc`을 사용해야 합니다 (혹은 기본값 설정).
+    -   예:
+        ```bash
+        curl -X POST http://localhost:8080/api/ingest -d '{"dir": "/app/doc"}'
+        ```
+
+See [API.md](API.md) for API usage details.

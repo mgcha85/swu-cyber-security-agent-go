@@ -13,16 +13,30 @@ import (
 	"swu-cyber-security-agent-go/internal/model"
 	"swu-cyber-security-agent-go/internal/rag"
 	"swu-cyber-security-agent-go/internal/vector"
+	"swu-cyber-security-agent-go/pkg/config"
 
+	"github.com/joho/godotenv"
 	adkmodel "google.golang.org/adk/model"
 	"google.golang.org/genai"
 )
 
 func main() {
+	// Load .env
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system environment variables")
+	}
+
 	ingestDir := flag.String("ingest", "", "Directory containing PDFs to ingest")
 	chatQuery := flag.String("chat", "", "Query to ask the RAG agents")
 	serverMode := flag.Bool("server", false, "Run as HTTP API/WEB Server")
+	configPath := flag.String("config", "config.yaml", "Path to config.yaml")
 	flag.Parse()
+
+	// Load Config
+	cfg, err := config.LoadConfig(*configPath)
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
 
 	qdrantAddr := os.Getenv("QDRANT_ADDR")
 	if qdrantAddr == "" {
@@ -47,6 +61,12 @@ func main() {
 
 	if *ingestDir != "" {
 		collectionName := "cve_database"
+		if len(cfg.Agents) > 0 && len(cfg.Agents[0].KnowledgeBases) > 0 {
+			collectionName = cfg.Agents[0].KnowledgeBases[0]
+		}
+
+		fmt.Printf("Ingesting into collection: %s\n", collectionName)
+
 		ingestor := rag.NewIngestor(vc, ec, collectionName)
 		if err := ingestor.IngestPDFs(ctx, *ingestDir); err != nil {
 			log.Fatalf("Ingestion failed: %v", err)
@@ -55,30 +75,52 @@ func main() {
 		return
 	}
 
+	// Determine Model Provider
+	var llm adkmodel.LLM
+	provider := os.Getenv("LLM_PROVIDER")
+	if provider == "openai" {
+		baseURL := os.Getenv("OPENAI_BASE_URL")
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		modelName := os.Getenv("OPENAI_MODEL_NAME")
+
+		fmt.Printf("Using OpenAI Compatible Model: %s at %s\n", modelName, baseURL)
+		llm = model.NewOpenAIModel(baseURL, apiKey, modelName)
+	} else {
+		fmt.Println("Using Mock Model (Set LLM_PROVIDER=openai in .env to use real model)")
+		llm = &model.MockModel{FixedResponse: "This is a mock response from the Research Agent."}
+	}
+
 	if *chatQuery != "" {
-		runCLI(ctx, *chatQuery, vc, ec)
+		if len(cfg.Agents) == 0 {
+			log.Fatal("No agents defined in config")
+		}
+		targetAgent := cfg.Agents[0]
+		runCLI(ctx, *chatQuery, vc, ec, targetAgent, llm)
 		return
 	}
 
 	if *serverMode {
-		runServer(ctx, vc, ec)
+		runServer(ctx, vc, ec, cfg, llm)
 		return
 	}
 
 	flag.Usage()
 }
 
-func runCLI(ctx context.Context, query string, vc *vector.Client, ec *rag.EmbeddingClient) {
-	// Init Mock Model
-	m := &model.MockModel{FixedResponse: "This is a mock response from the Research Agent."}
+func runCLI(ctx context.Context, query string, vc *vector.Client, ec *rag.EmbeddingClient, cfg config.AgentConfig, m adkmodel.LLM) {
+	kbName := "cve_database"
+	if len(cfg.KnowledgeBases) > 0 {
+		kbName = cfg.KnowledgeBases[0]
+	}
+	retriever := rag.NewRetriever(vc, ec, kbName)
 
-	retriever := rag.NewRetriever(vc, ec, "cve_database")
+	fmt.Printf("Initializing Agent: %s\nInstruction: %s\n", cfg.Name, cfg.Instruction)
 
 	researcher, err := agent.NewResearchAgent(
 		ctx,
-		"Attacker Feasibility",
-		"Analyzes attack feasibility.",
-		"cve_database",
+		cfg.Name,
+		cfg.Description,
+		kbName,
 		retriever,
 		m,
 	)
@@ -88,11 +130,14 @@ func runCLI(ctx context.Context, query string, vc *vector.Client, ec *rag.Embedd
 
 	fmt.Printf("Agent %s is thinking...\n", researcher.Name)
 
+	// Add instruction to the query since our adapter is simple
+	fullPrompt := fmt.Sprintf("System Instruction: %s\n\nUser Query: %s", cfg.Instruction, query)
+
 	req := &adkmodel.LLMRequest{
 		Contents: []*genai.Content{
 			{
 				Parts: []*genai.Part{
-					{Text: fmt.Sprintf("Question: %s", query)},
+					{Text: fullPrompt},
 				},
 			},
 		},
@@ -111,8 +156,7 @@ func runCLI(ctx context.Context, query string, vc *vector.Client, ec *rag.Embedd
 	fmt.Println()
 }
 
-func runServer(ctx context.Context, vc *vector.Client, ec *rag.EmbeddingClient) {
-	// Re-using dependencies for handlers
+func runServer(ctx context.Context, vc *vector.Client, ec *rag.EmbeddingClient, cfg *config.Config, m adkmodel.LLM) {
 	http.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -120,32 +164,59 @@ func runServer(ctx context.Context, vc *vector.Client, ec *rag.EmbeddingClient) 
 		}
 
 		var req struct {
-			Query string `json:"query"`
+			Query   string `json:"query"`
+			AgentID string `json:"agent_id"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
 
-		// Logic similar to CLI
-		m := &model.MockModel{FixedResponse: "This is a mock API response from the RAG System."}
-		retriever := rag.NewRetriever(vc, ec, "cve_database")
+		var targetAgent config.AgentConfig
+		if req.AgentID != "" {
+			found := false
+			for _, a := range cfg.Agents {
+				if a.ID == req.AgentID {
+					targetAgent = a
+					found = true
+					break
+				}
+			}
+			if !found {
+				http.Error(w, "Agent ID not found", http.StatusNotFound)
+				return
+			}
+		} else {
+			if len(cfg.Agents) > 0 {
+				targetAgent = cfg.Agents[0]
+			}
+		}
+
+		kbName := "cve_database"
+		if len(targetAgent.KnowledgeBases) > 0 {
+			kbName = targetAgent.KnowledgeBases[0]
+		}
+		retriever := rag.NewRetriever(vc, ec, kbName)
+
 		_, err := agent.NewResearchAgent(
 			ctx,
-			"Attacker Feasibility",
-			"Analyzes attack feasibility.",
-			"cve_database",
+			targetAgent.Name,
+			targetAgent.Description,
+			kbName,
 			retriever,
-			m,
+			m, // Pass the shared model instance (or create new if needed per request context?)
+			// Ideally NewResearchAgent uses the model instance.
+			// NOTE: sharing model instance is fine if it's stateless per request.
 		)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Agent init failed: %v", err), http.StatusInternalServerError)
 			return
 		}
 
-		// Simulating response generation (using MockModel direct call for POC)
+		fullPrompt := fmt.Sprintf("System Instruction: %s\n\nUser Query: %s", targetAgent.Instruction, req.Query)
+
 		llmReq := &adkmodel.LLMRequest{
-			Contents: []*genai.Content{{Parts: []*genai.Part{{Text: req.Query}}}},
+			Contents: []*genai.Content{{Parts: []*genai.Part{{Text: fullPrompt}}}},
 		}
 
 		var fullResponse string
@@ -160,28 +231,41 @@ func runServer(ctx context.Context, vc *vector.Client, ec *rag.EmbeddingClient) 
 			}
 		}
 
-		json.NewEncoder(w).Encode(map[string]string{"response": fullResponse})
+		json.NewEncoder(w).Encode(map[string]string{
+			"agent":    targetAgent.Name,
+			"response": fullResponse,
+		})
 	})
 
+	// Ingest endpoint remains same...
 	http.HandleFunc("/api/ingest", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		var req struct {
-			Dir string `json:"dir"`
+			Dir            string `json:"dir"`
+			CollectionName string `json:"collection_name"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
 
-		ingestor := rag.NewIngestor(vc, ec, "cve_database")
+		targetCollection := req.CollectionName
+		if targetCollection == "" {
+			targetCollection = "cve_database"
+		}
+
+		ingestor := rag.NewIngestor(vc, ec, targetCollection)
 		if err := ingestor.IngestPDFs(ctx, req.Dir); err != nil {
 			http.Error(w, fmt.Sprintf("Ingestion failed: %v", err), http.StatusInternalServerError)
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Ingestion complete"})
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "success",
+			"message": fmt.Sprintf("Ingestion complete into %s", targetCollection),
+		})
 	})
 
 	fmt.Println("Server listening on :8080")

@@ -1,6 +1,25 @@
 version: '3.8'
 
 services:
+  agent:
+    build: .
+    container_name: agent-server
+    ports:
+      - "8080:8080"
+    environment:
+      - QDRANT_ADDR=qdrant:6334
+      # Assuming Ollama runs on host. 'host.containers.internal' works for Podman.
+      # If using Docker Desktop/Compose, it might be 'host.docker.internal'.
+      - OLLAMA_BASE=http://host.containers.internal:11434
+    volumes:
+      # Volume Mapping: Host's ./doc folder -> Container's /app/doc folder
+      - ./doc:/app/doc:ro
+    depends_on:
+      - qdrant
+    # For Linux Podman to resolve host.containers.internal reliably
+    extra_hosts:
+      - "host.containers.internal:host-gateway"
+
   qdrant:
     image: qdrant/qdrant:latest
     container_name: qdrant
@@ -11,18 +30,4 @@ services:
       - ./qdrant_data:/qdrant/storage
     restart: always
 
-  # Ollama service (optional - assuming user might run it locally or wants it containerized)
-  # Keeping it simple for now as requested "Podman Compose (Qdrant, Ollama, vLLM)"
-  # Note: Ollama often requires GPU passthrough which can be tricky in containers without proper setup.
-  # For this POC, we will assume Ollama is accessible at host:11434 or via this container.
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: always
-
-volumes:
-  ollama_data:
+# Ollama is removed from services as User specified it is running on Host.

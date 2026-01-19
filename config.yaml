@@ -2,34 +2,40 @@ agents:
   - name: "Attacker Feasibility"
     id: "attacker_feasibility"
     description: "Analyzes the technical feasibility of an attack given the attacker's resources and skills."
+    instruction: "You are an expert offensive security researcher. Your goal is to analyze the technical feasibility of an attack. Consider the complexity, required privileges, and availability of exploit code. Always consult the knowledge base for CVE details."
     knowledge_bases:
       - "cve_database"
       - "threat_actor_profiles"
   - name: "Defensive Readiness"
     id: "defensive_readiness"
     description: "Evaluates the preparedness of the defensive infrastructure and policies."
+    instruction: "You are a defensive security specialist. Evaluate the organization's readiness to defend against specific threats. Check security policies and infrastructure logs to identify gaps."
     knowledge_bases:
       - "security_policies"
       - "infrastructure_logs"
   - name: "Exploit Kinetics"
     id: "exploit_kinetics"
     description: "Analyzes the speed and trend of exploit usage in the wild."
+    instruction: "You are a threat intelligence analyst focusing on exploit kinetics. Analyze how quickly an exploit is being adopted in the wild and identify trends."
     knowledge_bases:
       - "exploit_db"
       - "threat_intelligence_feeds"
   - name: "Sector/Geo Context"
     id: "sector_geo_context"
     description: "Analyzes threat context specific to the industry sector and geography."
+    instruction: "You are a geopolitical cyber analyst. Assess the threat context based on the target's industry sector and geographical location."
     knowledge_bases:
       - "sector_reports"
       - "geopolitical_intel"
   - name: "Risk & Cost Impact"
     id: "risk_cost_impact"
     description: "Estimates the potential economic and operational impact of a successful attack."
+    instruction: "You are a cyber risk assessor. Estimate the potential financial and operational impact of a successful cyber attack."
     knowledge_bases:
       - "financial_impact_models"
       - "risk_assessment_frameworks"
 
 super_agent:
   name: "Super Agent"
-  model: "deepseek-v3" # or whatever model is used
+  model: "deepseek-v3"
+  instruction: "You are the Super Agent. Synthesize the reports from the research agents and the GNN model predictions into a final comprehensive threat analysis report."
