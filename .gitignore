@@ -1,6 +1,7 @@
 doc/
 qdrant_data/
 gnn_results/
+.opencode/
 
 *.pdf
 .env
