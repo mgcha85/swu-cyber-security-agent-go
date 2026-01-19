@@ -1,0 +1,35 @@
+agents:
+  - name: "Attacker Feasibility"
+    id: "attacker_feasibility"
+    description: "Analyzes the technical feasibility of an attack given the attacker's resources and skills."
+    knowledge_bases:
+      - "cve_database"
+      - "threat_actor_profiles"
+  - name: "Defensive Readiness"
+    id: "defensive_readiness"
+    description: "Evaluates the preparedness of the defensive infrastructure and policies."
+    knowledge_bases:
+      - "security_policies"
+      - "infrastructure_logs"
+  - name: "Exploit Kinetics"
+    id: "exploit_kinetics"
+    description: "Analyzes the speed and trend of exploit usage in the wild."
+    knowledge_bases:
+      - "exploit_db"
+      - "threat_intelligence_feeds"
+  - name: "Sector/Geo Context"
+    id: "sector_geo_context"
+    description: "Analyzes threat context specific to the industry sector and geography."
+    knowledge_bases:
+      - "sector_reports"
+      - "geopolitical_intel"
+  - name: "Risk & Cost Impact"
+    id: "risk_cost_impact"
+    description: "Estimates the potential economic and operational impact of a successful attack."
+    knowledge_bases:
+      - "financial_impact_models"
+      - "risk_assessment_frameworks"
+
+super_agent:
+  name: "Super Agent"
+  model: "deepseek-v3" # or whatever model is used
