@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"swu-cyber-security-agent-go/internal/agent"
+	"swu-cyber-security-agent-go/internal/db"
 	"swu-cyber-security-agent-go/internal/gnn"
 	"swu-cyber-security-agent-go/internal/model"
 	"swu-cyber-security-agent-go/internal/rag"
@@ -63,6 +64,16 @@ func main() {
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Init DB & Apply Overrides
+	if err := db.InitDB(); err != nil {
+		log.Printf("Failed to init DB, proceeding without persistence: %v", err)
+	} else {
+		overrides, err := db.GetAllConfigs()
+		if err == nil {
+			cfg.ApplyOverrides(overrides)
+		}
 	}
 
 	qdrantAddr := os.Getenv("QDRANT_ADDR")
@@ -126,7 +137,48 @@ func runAPIServer(ctx context.Context, vc *vector.Client, ec *rag.EmbeddingClien
 	gnnLoader := gnn.NewLoader("gnn_results")
 
 	// Metrics Endpoint
+	// Metrics Endpoint
 	r.Handle("/metrics", promhttp.Handler())
+
+	// 0. Config & History Endpoints
+	r.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			configs, _ := db.GetAllConfigs()
+			// Mask secrets
+			for k, v := range configs {
+				if strings.Contains(k, "KEY") {
+					if len(v) > 4 {
+						configs[k] = "..." + v[len(v)-4:]
+					} else {
+						configs[k] = "***"
+					}
+				}
+			}
+			json.NewEncoder(w).Encode(configs)
+		} else if r.Method == "POST" {
+			var req struct {
+				Key   string `json:"key"`
+				Value string `json:"value"`
+			}
+			json.NewDecoder(r.Body).Decode(&req)
+			if err := db.UpsertConfig(req.Key, req.Value); err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			// Apply immediately
+			cfg.ApplyOverrides(map[string]string{req.Key: req.Value})
+			json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+		}
+	}).Methods("GET", "POST")
+
+	r.HandleFunc("/api/reports", func(w http.ResponseWriter, r *http.Request) {
+		reports, err := db.GetReports(20) // Limit 20
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		json.NewEncoder(w).Encode(reports)
+	}).Methods("GET")
 
 	// 1. Ingest
 	r.HandleFunc("/api/ingest", func(w http.ResponseWriter, r *http.Request) {
@@ -312,6 +364,13 @@ func runAPIServer(ctx context.Context, vc *vector.Client, ec *rag.EmbeddingClien
 			http.Error(w, err.Error(), 500)
 			return
 		}
+
+		// Save Report to DB
+		summary := finalReport
+		if len(summary) > 200 {
+			summary = summary[:200] + "..."
+		}
+		db.SaveReport(threatName+".md", threatName, summary)
 
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"final_report":  finalReport,

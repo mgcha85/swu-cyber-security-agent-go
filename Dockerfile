@@ -3,8 +3,8 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache git
+# Install build dependencies (CGO required for go-sqlite3)
+RUN apk add --no-cache git gcc musl-dev
 
 # Copy go mod and sum files
 COPY go.mod go.sum ./
@@ -15,8 +15,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN go build -o agent-server ./cmd/server
+# Build the application with CGO enabled
+RUN CGO_ENABLED=1 go build -o agent-server ./cmd/server
 
 # Runtime Stage
 FROM alpine:latest

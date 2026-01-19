@@ -56,3 +56,16 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	return &cfg, nil
 }
+
+func (c *Config) ApplyOverrides(overrides map[string]string) {
+	for k, v := range overrides {
+		switch k {
+		case "OPENAI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_CX":
+			os.Setenv(k, v)
+		case "system.embedding_model":
+			c.System.EmbeddingModel = v
+		case "system.vision_model":
+			c.System.VisionModel = v
+		}
+	}
+}
