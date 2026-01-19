@@ -74,6 +74,19 @@ func (c *Client) CollectionExists(ctx context.Context, name string) (bool, error
 	return false, nil
 }
 
+func (c *Client) ListCollections(ctx context.Context) ([]string, error) {
+	resp, err := c.colls.List(ctx, &pb.ListCollectionsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list collections: %w", err)
+	}
+
+	var names []string
+	for _, col := range resp.Collections {
+		names = append(names, col.Name)
+	}
+	return names, nil
+}
+
 func (c *Client) UpsertPoints(ctx context.Context, collectionName string, points []*pb.PointStruct) error {
 	// Simple batch upsert
 	_, err := c.points.Upsert(ctx, &pb.UpsertPoints{

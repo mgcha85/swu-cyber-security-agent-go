@@ -11,6 +11,8 @@ services:
       # Assuming Ollama runs on host. 'host.containers.internal' works for Podman.
       # If using Docker Desktop/Compose, it might be 'host.docker.internal'.
       - OLLAMA_BASE=http://host.containers.internal:11434
+    env_file:
+      - .env
     volumes:
       # Volume Mapping: Host's ./doc folder -> Container's /app/doc folder
       - ./doc:/app/doc:ro
@@ -30,4 +32,26 @@ services:
       - ./qdrant_data:/qdrant/storage
     restart: always
 
-# Ollama is removed from services as User specified it is running on Host.
+  # Ollama is removed from services as User specified it is running on Host.
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    extra_hosts:
+      - "host.containers.internal:host-gateway"
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: swagger-ui
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./swagger/openapi.yaml:/openapi.yaml
+    environment:
+      SWAGGER_JSON: /openapi.yaml

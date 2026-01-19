@@ -28,13 +28,28 @@ func (sa *SuperAgent) Synthesize(ctx context.Context, query string, agentReports
 	prompt := fmt.Sprintf(`
 User Query: %s
 
-## GNN Model Prediction
+## GNN Data (Quantitative & Trend)
 %s
 
-## Research Agent Reports
+## Research Agent Findings (Qualitative)
 %s
 
-Synthesize these findings into a final report.
+## Instructions for Synthesis
+1. **Comparison Table**: Create a markdown table comparing GNN Predictions vs. Agent Opinions.
+   | Feature/Threat | GNN Trend | Agent Consensus | Agreement |
+   | :--- | :--- | :--- | :--- |
+   | ... | ... | ... | ... |
+
+2. **Agent Stance Summary**: Briefly summarize each agent's stance and their basis (Success/Fail/Neutral).
+   - **Attacker Feasibility**: [Reason] -> (Agree/Disagree with GNN)
+   - ...
+
+3. **Final Conclusion (Vote)**:
+   - Tally the "votes" (e.g., Agents supporting GNN vs. opposing).
+   - Format: "Result: X vs Y - [Winner] Dominates".
+   - providing a final strategic recommendation.
+
+Synthesize these findings into the final report following the structure above.
 `, query, gnnResult, reportsBuilder.String())
 
 	// Create a simple text content request

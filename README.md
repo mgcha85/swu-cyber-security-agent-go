@@ -76,7 +76,19 @@ API 엔드포인트를 노출하기 위해 HTTP 서버를 시작합니다:
 ./agent-server --server
 ```
 *서버는 8080 포트에서 수신 대기합니다.*
+## 6. 관측 및 문서화 (Observability & Docs)
 
+### Swagger UI (API 문서)
+API 명세를 시각적으로 확인하고 테스트할 수 있습니다.
+-   URL: `http://localhost:8081`
+
+### Prometheus (메트릭 모니터링)
+LLM 응답 속도 등의 성능 데이터를 조회할 수 있습니다.
+-   URL: `http://localhost:9090`
+-   주요 메트릭: `llm_request_duration_seconds`
+
+## 7. 문의
+문제 발생 시 Issue를 등록해주세요.
 ### 컨테이너 환경에서 실행 (Container)
 
 호스트에 설치된 Ollama와 PDF 문서가 있는 `./doc` 폴더를 연동하여 컨테이너로 실행할 수 있습니다.

@@ -29,6 +29,7 @@ RUN apk add --no-cache ca-certificates
 # Copy the binary from builder
 COPY --from=builder /app/agent-server .
 COPY --from=builder /app/config.yaml .
+COPY --from=builder /app/gnn_results ./gnn_results
 
 # Create doc directory for volume mount
 RUN mkdir doc

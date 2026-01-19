@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'agent-go'
+    static_configs:
+      - targets: ['host.containers.internal:8080'] # Since we use Podman/Compose, address might vary.
+                                                   # If using podman-compose, services are on a network.
+                                                   # Usually 'agent:8080' if I name the service 'agent'.
+                                                   # Let's check docker-compose.yml service name.

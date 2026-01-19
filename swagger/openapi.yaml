@@ -1,0 +1,157 @@
+openapi: 3.0.0
+info:
+  title: Cyber Security Agent RAG API
+  description: API for the Multi-Agent RAG System analyzing cyber threats.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/super/chat:
+    post:
+      summary: Super Agent Orchestration
+      description: Orchestrates all research agents and optionally VLM to answer a query.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  example: "Analyze the threat landscape for the financial sector."
+                image:
+                  type: string
+                  description: Optional Base64 encoded image
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  final_report:
+                    type: string
+                  agent_reports:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  vlm_analysis:
+                    type: string
+
+  /api/agent/{id}/chat:
+    post:
+      summary: Individual Agent Chat
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+      responses:
+        '200':
+          description: Agent response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent:
+                    type: string
+                  response:
+                    type: string
+
+  /api/vlm/analyze:
+    post:
+      summary: VLM Image Analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  description: Base64 image
+                prompt:
+                  type: string
+      responses:
+        '200':
+          description: VLM analysis result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: string
+
+  /api/ingest:
+    post:
+      summary: Ingest Documents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dir:
+                  type: string
+                collection_name:
+                  type: string
+      responses:
+        '200':
+          description: Success status
+
+  /api/agents:
+    get:
+      summary: List Agents
+      responses:
+        '200':
+          description: List of available agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+
+  /api/kb:
+    get:
+      summary: List Knowledge Bases
+      responses:
+        '200':
+          description: List of Qdrant collections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  knowledge_bases:
+                    type: array
+                    items:
+                      type: string
+
+  /api/agents/map:
+    get:
+      summary: Get Agent-KB Mapping
+      responses:
+        '200':
+          description: Detailed agent configuration including KB mapping
