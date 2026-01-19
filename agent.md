@@ -34,11 +34,11 @@ graph TD
     end
     
     subgraph "RAG Process (Per Agent)"
-        RA1 <-->|Query & Retrieve| KB1[(Mandiant/IBM KB)]
-        RA2 <-->|Query & Retrieve| KB2[(CMU/DFIR KB)]
-        RA3 <-->|Query & Retrieve| KB3[(IBM/DFIR KB)]
-        RA4 <-->|Query & Retrieve| KB4[(DBIR/Mandiant KB)]
-        RA5 <-->|Query & Retrieve| KB5[(DBIR/DFIR KB)]
+        RA1 <-->|Query & Retrieve| KB1[("Mandiant-M-Trends<br/>IBM-X-FORCE")]
+        RA2 <-->|Query & Retrieve| KB2[("CMU_SEI_CERT<br/>DFIR")]
+        RA3 <-->|Query & Retrieve| KB3[("IBM-X-FORCE<br/>DFIR")]
+        RA4 <-->|Query & Retrieve| KB4[("DBIR<br/>Mandiant-M-Trends")]
+        RA5 <-->|Query & Retrieve| KB5[("DBIR<br/>DFIR")]
     end
     
     subgraph "Synthesis"
