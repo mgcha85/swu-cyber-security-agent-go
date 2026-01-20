@@ -1,6 +1,7 @@
 package rag
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 
 	"swu-cyber-security-agent-go/internal/vector"
 
+	"github.com/dslipak/pdf"
 	"github.com/google/uuid"
 	pb "github.com/qdrant/go-client/qdrant"
 )
@@ -28,7 +30,6 @@ func NewIngestor(vc *vector.Client, ec *EmbeddingClient, collection string, dim 
 	}
 }
 
-// IngestPDFs iterates over a directory and ingests all PDF files
 func (i *Ingestor) IngestPDFs(ctx context.Context, dir string) error {
 	// Ensure collection exists
 	if err := i.VectorClient.CreateCollection(ctx, i.Collection, uint64(i.EmbeddingDim)); err != nil {
@@ -47,17 +48,33 @@ func (i *Ingestor) IngestPDFs(ctx context.Context, dir string) error {
 		}
 
 		fmt.Printf("Processing %s...\n", path)
-		// TODO: Real PDF text extraction. For Step 1, simple text mock/placeholder or use a library.
-		// Since pure Go PDF text extraction can be complex, I might use a simple placeholder or suggest a library.
-		// For now, I'll simulate text extraction to keep dependencies simple unless user requested robust parsing.
-		// User mentioned "rsc.io/pdf" in plan but that's quite old. "dslipak/pdf" is a fork or similar.
-		// Let's use a mock extraction for the structure first, or a simple text reader if files are text.
-
-		text := "Mock content for " + path
-		// Real impl would call i.extractText(path)
+		text, err := i.extractText(path)
+		if err != nil {
+			fmt.Printf("Warning: Failed to extract text from %s: %v\n", path, err)
+			return nil // Skip failed files but continue walking
+		}
 
 		return i.indexDocument(ctx, path, text)
 	})
+}
+
+func (i *Ingestor) extractText(path string) (string, error) {
+	r, err := pdf.Open(path)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	b, err := r.GetPlainText()
+	if err != nil {
+		return "", err
+	}
+	_, err = buf.ReadFrom(b)
+	if err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
 }
 
 func (i *Ingestor) indexDocument(ctx context.Context, filename, text string) error {

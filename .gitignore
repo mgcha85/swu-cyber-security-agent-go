@@ -3,6 +3,17 @@ qdrant_data/
 gnn_results/
 .opencode/
 
+# Large data files
+data/datasets/
+data/agent.db
+data/agent.db-journal
+
+# Logs
+*.log
+pipeline.log
+ingestion.log
+
+# Environment
 *.pdf
 .env
 config.yaml

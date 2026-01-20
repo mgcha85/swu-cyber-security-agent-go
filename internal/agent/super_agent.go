@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"swu-cyber-security-agent-go/internal/logger"
+
 	"google.golang.org/adk/model"
 	"google.golang.org/genai"
 )
@@ -52,6 +54,8 @@ User Query: %s
 Synthesize these findings into the final report following the structure above.
 `, query, gnnResult, reportsBuilder.String())
 
+	logger.SuperAgent("Synthesis Prompt:\n%s", prompt)
+
 	// Create a simple text content request
 	req := &model.LLMRequest{
 		Contents: []*genai.Content{
@@ -76,5 +80,8 @@ Synthesize these findings into the final report following the structure above.
 		}
 	}
 
-	return fullResponse.String(), nil
+	result := fullResponse.String()
+	logger.SuperAgent("Synthesis Result (length %d)", len(result))
+
+	return result, nil
 }

@@ -44,6 +44,30 @@ func createTables() error {
 			summary TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
+		`CREATE TABLE IF NOT EXISTS epss (
+			cve TEXT PRIMARY KEY,
+			epss_score REAL,
+			percentile REAL,
+			score_date TEXT
+		);`,
+		`CREATE TABLE IF NOT EXISTS cisa_kev (
+			cve_id TEXT PRIMARY KEY,
+			vendor_project TEXT,
+			date_added TEXT
+		);`,
+		`CREATE TABLE IF NOT EXISTS nvd_meta (
+			cve_id TEXT PRIMARY KEY,
+			cvss_score REAL,
+			published_date TEXT,
+			last_modified TEXT
+		);`,
+		`CREATE TABLE IF NOT EXISTS otx_ioc (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			indicator TEXT,
+			type TEXT,
+			pulse_id TEXT,
+			created TEXT
+		);`,
 	}
 
 	for _, query := range queries {
@@ -121,4 +145,87 @@ func GetReports(limit int) ([]Report, error) {
 		reports = append(reports, r)
 	}
 	return reports, nil
+}
+
+// Cyber Intelligence Operations
+
+func SaveEpss(cve string, score, percentile float64, date string) error {
+	query := `INSERT INTO epss (cve, epss_score, percentile, score_date) VALUES (?, ?, ?, ?)
+			  ON CONFLICT(cve) DO UPDATE SET epss_score=excluded.epss_score, percentile=excluded.percentile, score_date=excluded.score_date;`
+	_, err := DB.Exec(query, cve, score, percentile, date)
+	return err
+}
+
+func SaveCisaKev(cveID, vendor, date string) error {
+	query := `INSERT INTO cisa_kev (cve_id, vendor_project, date_added) VALUES (?, ?, ?)
+			  ON CONFLICT(cve_id) DO UPDATE SET vendor_project=excluded.vendor_project, date_added=excluded.date_added;`
+	_, err := DB.Exec(query, cveID, vendor, date)
+	return err
+}
+
+func SaveNvdMeta(cveID string, cvss float64, pubDate, modDate string) error {
+	query := `INSERT INTO nvd_meta (cve_id, cvss_score, published_date, last_modified) VALUES (?, ?, ?, ?)
+			  ON CONFLICT(cve_id) DO UPDATE SET cvss_score=excluded.cvss_score, published_date=excluded.published_date, last_modified=excluded.last_modified;`
+	_, err := DB.Exec(query, cveID, cvss, pubDate, modDate)
+	return err
+}
+
+func SaveOtxIoc(indicator, iocType, pulseID, created string) error {
+	query := "INSERT INTO otx_ioc (indicator, type, pulse_id, created) VALUES (?, ?, ?, ?)"
+	_, err := DB.Exec(query, indicator, iocType, pulseID, created)
+	return err
+}
+
+// Query Helpers for Tools
+func GetCveContext(cveID string) (map[string]interface{}, error) {
+	res := make(map[string]interface{})
+
+	// EPSS
+	var epssScore, percentile float64
+	err := DB.QueryRow("SELECT epss_score, percentile FROM epss WHERE cve = ?", cveID).Scan(&epssScore, &percentile)
+	if err == nil {
+		res["epss_score"] = epssScore
+		res["epss_percentile"] = percentile
+	} else if err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	// CISA KEV
+	var kevID string
+	err = DB.QueryRow("SELECT cve_id FROM cisa_kev WHERE cve_id = ?", cveID).Scan(&kevID)
+	res["is_cisa_kev"] = (err == nil)
+
+	// NVD Meta
+	var cvssScore float64
+	err = DB.QueryRow("SELECT cvss_score FROM nvd_meta WHERE cve_id = ?", cveID).Scan(&cvssScore)
+	if err == nil {
+		res["cvss_score"] = cvssScore
+	} else if err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func SearchIoc(indicator string) ([]map[string]interface{}, error) {
+	query := "SELECT type, pulse_id, created FROM otx_ioc WHERE indicator = ?"
+	rows, err := DB.Query(query, indicator)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []map[string]interface{}
+	for rows.Next() {
+		var iocType, pulseID, created string
+		if err := rows.Scan(&iocType, &pulseID, &created); err != nil {
+			return nil, err
+		}
+		results = append(results, map[string]interface{}{
+			"type":     iocType,
+			"pulse_id": pulseID,
+			"created":  created,
+		})
+	}
+	return results, nil
 }

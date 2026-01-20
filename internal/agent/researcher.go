@@ -45,7 +45,17 @@ func NewResearchAgent(ctx context.Context, name, desc, kb string, r *rag.Retriev
 		Description: fmt.Sprintf("Consults the %s knowledge base.", kb),
 	}, handler)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tool: %w", err)
+		return nil, fmt.Errorf("failed to create kb tool: %w", err)
+	}
+
+	cveTool, err := NewCveTool()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cve tool: %w", err)
+	}
+
+	iocTool, err := NewIocTool()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ioc tool: %w", err)
 	}
 
 	agent, err := llmagent.New(llmagent.Config{
@@ -53,9 +63,9 @@ func NewResearchAgent(ctx context.Context, name, desc, kb string, r *rag.Retriev
 		Description: desc,
 		Model:       m,
 		Instruction: fmt.Sprintf("You are a specialized research agent focused on %s. "+
-			"Knowledge Base: %s. "+
-			"Always consult the knowledge base first.", name, kb),
-		Tools: []tool.Tool{kbTool},
+			"You have access to a knowledge base and structured cyber intelligence data. "+
+			"Always consult the knowledge base and use provided tools (CVE details, IOC search) to gather factual data.", name),
+		Tools: []tool.Tool{kbTool, cveTool, iocTool},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agent: %w", err)

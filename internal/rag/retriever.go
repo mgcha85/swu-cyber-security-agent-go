@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"swu-cyber-security-agent-go/internal/logger"
 	"swu-cyber-security-agent-go/internal/vector"
 )
 
@@ -29,6 +30,8 @@ type SearchResult struct {
 }
 
 func (r *Retriever) Search(ctx context.Context, query string, limit uint64) ([]SearchResult, error) {
+	logger.Retrieval("Searching collection '%s' for query: %s", r.Collection, query)
+
 	emb, err := r.Embedder.Embed(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed query: %w", err)
@@ -39,8 +42,10 @@ func (r *Retriever) Search(ctx context.Context, query string, limit uint64) ([]S
 		return nil, fmt.Errorf("search failed: %w", err)
 	}
 
+	logger.Retrieval("Found %d results in '%s'", len(points), r.Collection)
+
 	results := make([]SearchResult, 0, len(points))
-	for _, p := range points {
+	for i, p := range points {
 		content := ""
 		filename := ""
 
@@ -52,6 +57,8 @@ func (r *Retriever) Search(ctx context.Context, query string, limit uint64) ([]S
 				filename = v.GetStringValue()
 			}
 		}
+
+		logger.Retrieval("  result [%d] file: %s, score: %f", i, filename, p.Score)
 
 		results = append(results, SearchResult{
 			Content:  content,

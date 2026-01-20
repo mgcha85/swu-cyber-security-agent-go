@@ -76,3 +76,21 @@ with open('data/datasets/cisa_kev.json', 'r') as f:
 epss_df = pd.read_csv('data/datasets/epss_scores.csv', skiprows=1)
 print(epss_df.head())
 ```
+
+---
+
+## Sample Parsing Script
+A sample Go script to parse MITRE ATT&CK is available at `scripts/parse_mitre.go`.
+Run it with:
+```bash
+go run scripts/parse_mitre.go
+```
+
+---
+
+## CISA KEV Parsing Script
+A sample Go script to parse CISA KEV is available at `scripts/parse_cisa_kev.go`.
+Run it with:
+```bash
+go run scripts/parse_cisa_kev.go
+```

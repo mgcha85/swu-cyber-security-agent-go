@@ -60,6 +60,16 @@ func (c *Client) CreateCollection(ctx context.Context, name string, vectorSize u
 	return nil
 }
 
+func (c *Client) DeleteCollection(ctx context.Context, name string) error {
+	_, err := c.colls.Delete(ctx, &pb.DeleteCollection{
+		CollectionName: name,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete collection %s: %w", name, err)
+	}
+	return nil
+}
+
 func (c *Client) CollectionExists(ctx context.Context, name string) (bool, error) {
 	resp, err := c.colls.List(ctx, &pb.ListCollectionsRequest{})
 	if err != nil {
