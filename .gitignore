@@ -1,6 +1,5 @@
 doc/
 qdrant_data/
-gnn_results/
 .opencode/
 
 # Large data files

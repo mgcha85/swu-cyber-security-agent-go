@@ -15,6 +15,7 @@ import (
 	"swu-cyber-security-agent-go/internal/logger"
 	"swu-cyber-security-agent-go/internal/model"
 	"swu-cyber-security-agent-go/internal/rag"
+	"swu-cyber-security-agent-go/internal/tool"
 	"swu-cyber-security-agent-go/internal/vector"
 	"swu-cyber-security-agent-go/pkg/config"
 
@@ -51,6 +52,10 @@ func main() {
 
 	gnnLoader := gnn.NewLoader("gnn_results")
 	vlm := model.NewVLMClient(ollamaBase, cfg.System.VisionModel)
+	searchTool := tool.NewGoogleSearch()
+	if searchTool.ApiKey == "" || searchTool.Cx == "" {
+		fmt.Println("Warning: Google Search API key or CX not set. Web search will be skipped.")
+	}
 	sa := agent.NewSuperAgent(llm)
 
 	// 2. Load all threats from GNN results
@@ -104,6 +109,18 @@ func main() {
 			logger.VLM("No graph image found for threat: %s", threat)
 		}
 
+		// A-3. Web Search (Real-time Context)
+		searchContext := "Web search disabled or failed."
+		if searchTool.ApiKey != "" && searchTool.Cx != "" {
+			logger.Pipeline("Performing web search for: %s", threat)
+			res, err := searchTool.SearchAndFormat(ctx, fmt.Sprintf("latest %s cyber security threat trends 2024 2025", threat))
+			if err == nil {
+				searchContext = res
+			} else {
+				logger.Pipeline("Web search error: %v", err)
+			}
+		}
+
 		// B. Run Research Agents
 		reports := make(map[string]string)
 		var mu sync.Mutex
@@ -143,7 +160,7 @@ func main() {
 					}
 				}
 
-				prompt := fmt.Sprintf("System: %s\n\n[Relational Metadata (Factual Metrics)]\n%s\n\n[Visual Intelligence Context]\n%s\n\n[Technical/Knowledge Context]\n%s\n\nQuery: Analyze the threat: %s", a.Instruction, relationalContext, vlmInterpretation, ctxData, threat)
+				prompt := fmt.Sprintf("System: %s\n\n[Relational Metadata (Factual Metrics)]\n%s\n\n[Visual Intelligence Context]\n%s\n\n[Web Search Context]\n%s\n\n[Technical/Knowledge Context]\n%s\n\nQuery: Analyze the threat: %s. \nIMPORTANT: When citing specific information, you must strictly reference the source filename provided in the context, e.g., 'According to [Filename]...'.", a.Instruction, relationalContext, vlmInterpretation, searchContext, ctxData, threat)
 
 				logger.Agent(a.Name, "Researching threat with context length: %d", len(ctxData))
 				logger.Agent(a.Name, "Prompt: %s", prompt)
@@ -161,10 +178,23 @@ func main() {
 
 		// C. Super Agent Synthesis (English)
 		fmt.Printf("Synthesizing reports for %s (num_reports: %d)...\n", threat, len(reports))
-		finalReport, err := sa.Synthesize(ctx, threat, reports, gnnContext)
+
+		// Inject Figure into the synthesis
+		finalContextWithFigure := gnnContext
+		if gnnData.ImageCheckPath != "" {
+			finalContextWithFigure += fmt.Sprintf("\n\n![Trend Analysis](../%s)\n\n**Visual Interpretation:** %s", gnnData.ImageCheckPath, vlmInterpretation)
+		}
+
+		finalReport, err := sa.Synthesize(ctx, threat, reports, finalContextWithFigure)
 		if err != nil {
 			fmt.Printf("Synthesis error for %s: %v\n", threat, err)
 		}
+
+		// Force append the figure if not present (ensures it appears in the report)
+		if gnnData.ImageCheckPath != "" && !strings.Contains(finalReport, "![Trend Analysis]") {
+			finalReport += fmt.Sprintf("\n\n## 4. Visual Trend Analysis\n![Trend Analysis](../%s)\n\n**Visual Interpretation:** %s", gnnData.ImageCheckPath, vlmInterpretation)
+		}
+
 		fmt.Printf("Final report length: %d\n", len(finalReport))
 
 		// D. Save English Report
